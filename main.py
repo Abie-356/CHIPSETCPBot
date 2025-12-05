@@ -4,7 +4,6 @@ import os
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from keep_alive import keep_alive
 
 # ---------- Google Sheets Setup ----------
 SHEET_ID = "1qPoJ0uBdVCQZMZYWRS6Bt60YjJnYUkD4OePSTRMiSrI"
@@ -160,5 +159,5 @@ async def daily_reminder():
     submissions_today.clear()
 
 TOKEN = os.getenv("TOKEN")
-keep_alive()
+
 bot.run(TOKEN)
