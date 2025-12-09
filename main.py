@@ -26,16 +26,14 @@ client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID)
 
 registered_users = {}  # {discord_username: real_name}
-submissions_today = {}  # {discord_username: submission_count}
+submissions_today = {}  # {discord_username: count}
 
-# ---------- Helpers ----------
 def is_valid_day_sheet(title):
     try:
         datetime.datetime.strptime(title, "%Y-%m-%d")
         return True
     except:
         return False
-
 
 def load_users():
     try:
@@ -50,6 +48,8 @@ def load_users():
         if len(row) >= 2:
             registered_users[row[0]] = row[1]
 
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 def get_today_sheet():
     today = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -57,18 +57,14 @@ def get_today_sheet():
         ws = sheet.worksheet(today)
     except:
         ws = sheet.add_worksheet(title=today, rows=200, cols=4)
-        ws.append_row(["Date", "Discord Username", "Real Name", "Submission"])
+        ws.append_row(["Date", "Username", "Screenshot", "Problem Name"])
     return ws
-
-# ---------- Bot Setup ----------
-intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="/", intents=intents)
 
 
 @bot.event
 async def on_ready():
     load_users()
-    print(f"Bot is online ✔ {bot.user}")
+    print(f"Bot Ready ✔: {bot.user}")
     daily_reminder.start()
 
 
@@ -81,9 +77,9 @@ async def register(ctx):
     uname = ctx.author.name
 
     if uname in registered_users:
-        return await ctx.reply("✔ Already registered!")
+        return await ctx.reply("Already registered 🤝")
 
-    await ctx.reply("Enter your FULL REAL NAME 👇")
+    await ctx.reply("Send your REAL FULL NAME 👇")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
@@ -95,17 +91,17 @@ async def register(ctx):
 
         reg_sheet = sheet.worksheet("Registered_Users")
         reg_sheet.append_row([uname, real_name])
-        await ctx.reply(f"🎯 Registered Successfully: **{real_name}**")
+        await ctx.reply(f"✔ Registered Successfully {real_name} 🎯")
 
     except:
-        await ctx.reply("⏳ Timeout! Try `/register` again.")
+        await ctx.reply("⏳ Timeout! Try /register again.")
 
 
 # ---------- Submit ----------
 @bot.command()
 async def submit(ctx, *, problem_name="No Name"):
     if ctx.guild is not None:
-        return await ctx.reply("Submit privately in DM 😄")
+        return await ctx.reply("Submit privately here 😄")
 
     uname = ctx.author.name
 
@@ -113,72 +109,41 @@ async def submit(ctx, *, problem_name="No Name"):
         return await ctx.reply("❌ Register first using `/register`")
 
     if not ctx.message.attachments:
-        return await ctx.reply("⚠️ Attach screenshot!")
+        return await ctx.reply("⚠️ Attach screenshot also!")
 
-    real_name = registered_users[uname]
     submissions_today[uname] = submissions_today.get(uname, 0) + 1
 
     ws = get_today_sheet()
     ws.append_row([
         str(datetime.datetime.now().date()),
         uname,
-        real_name,
-        f"{problem_name} | {ctx.message.attachments[0].url}"
+        ctx.message.attachments[0].url,
+        problem_name
     ])
 
-    await ctx.reply(f"🔥 Submission #{submissions_today[uname]} saved! 💪")
+    await ctx.reply(f"🔥 Submission #{submissions_today[uname]} saved!")
 
 
 # ---------- Status ----------
 @bot.command()
 async def status(ctx):
     if ctx.guild is not None:
-        return await ctx.reply("Check status in DM 😄")
+        return await ctx.reply("DM me 😄")
 
     uname = ctx.author.name
     count = submissions_today.get(uname, 0)
 
     if count > 0:
-        await ctx.reply(f"🔥 You submitted {count} time(s) today!")
+        await ctx.reply(f"✔ You submitted {count} time(s) today! 🔥")
     else:
-        await ctx.reply("❌ No submissions yet!")
+        await ctx.reply("❌ No submissions yet today 😬")
 
 
-# ---------- Summary Command for Admin ----------
-@bot.command()
-async def summarize(ctx):
-    if ctx.guild is None:
-        return await ctx.reply("Run inside server 😄")
-
-    if not ctx.author.guild_permissions.administrator:
-        return await ctx.reply("❌ Admin only!")
-
-    today = datetime.datetime.now()
-    sheet_title = f"Summary-{today.strftime('%B')}-{today.strftime('%Y')}"
-
-    try:
-        sheet.worksheet(sheet_title)
-        return await ctx.reply("📄 Summary already exists!")
-    except:
-        sws = sheet.add_worksheet(title=sheet_title, rows=200, cols=4)
-        sws.append_row(["Real Name", "Days Submitted", "Total Days", "Consistency %"])
-
-    valid_days = [ws for ws in sheet.worksheets() if is_valid_day_sheet(ws.title)]
-    total_days = len(valid_days)
-
-    for uname, real_name in registered_users.items():
-        submitted_days = sum(uname in ws.col_values(2) for ws in valid_days)
-        percentage = (submitted_days / total_days * 100) if total_days else 0
-        sws.append_row([real_name, submitted_days, total_days, f"{percentage:.1f}%"])
-
-    await ctx.reply(f"📊 Summary created: **{sheet_title}**")
-
-
-# ---------- Not Completed Today for Admin ----------
+# ---------- Not Completed Today (Admin Only) ----------
 @bot.command()
 async def notcompleted(ctx):
     if ctx.guild is None:
-        return await ctx.reply("Use inside server 😄")
+        return await ctx.reply("Use this in server 😄")
 
     if not ctx.author.guild_permissions.administrator:
         return await ctx.reply("❌ Admin only!")
@@ -188,19 +153,22 @@ async def notcompleted(ctx):
     try:
         today_ws = sheet.worksheet(today)
     except:
-        return await ctx.reply("⚠️ No submissions today yet!")
+        return await ctx.reply("⚠️ Nobody submitted today 😅")
 
-    submitted_unames = set(today_ws.col_values(2)[1:])
-    not_done = [name for u, name in registered_users.items() if u not in submitted_unames]
+    submitted = set(today_ws.col_values(2)[1:])
+    not_done = [
+        registered_users[u] for u in registered_users
+        if u not in submitted
+    ]
 
     if not not_done:
-        return await ctx.reply("🎉 Everyone submitted today!")
+        return await ctx.reply("🎉 Everyone completed today!")
 
-    reply = "\n".join(f"• {name}" for name in not_done)
-    await ctx.reply(f"❌ Not Submitted Today:\n\n{reply}")
+    result = "\n".join(f"• {name}" for name in not_done)
+    await ctx.reply(f"❌ Pending Submissions:\n\n{result}")
 
 
-# ---------- Daily Reminder ----------
+# ---------- Daily DM Reminder ----------
 @tasks.loop(time=datetime.time(hour=22, minute=0))
 async def daily_reminder():
     for uname in registered_users:
@@ -214,6 +182,5 @@ async def daily_reminder():
     submissions_today.clear()
 
 
-# ---------- Run Bot ----------
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
