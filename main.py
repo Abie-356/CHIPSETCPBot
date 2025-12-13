@@ -4,49 +4,40 @@ import os
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 import json
 import requests
 import uuid
-import io
+from pathlib import Path
 
 # ================== CONFIG ==================
 
 TOKEN = os.getenv("TOKEN")
+VM_PUBLIC_IP = "52.172.194.26"   # <-- CHANGE THIS
+IMAGE_BASE_URL = f"http://{VM_PUBLIC_IP}:8080"
+
+IMAGE_DIR = Path("/home/Chakradhar/cpbot_images")
+IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 SHEET_ID = "1qPoJ0uBdVCQZMZYWRS6Bt60YjJnYUkD4OePSTRMiSrI"
-DRIVE_FOLDER_ID = "1_5_PPNN9YLOOC00Z-Wg1uhmDKfcglN5G"
-
-SHEETS_SCOPE = ["https://www.googleapis.com/auth/spreadsheets"]
-DRIVE_SCOPE = ["https://www.googleapis.com/auth/drive"]
+SCOPE = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # ================== GOOGLE SHEETS ==================
 
 sheets_creds = ServiceAccountCredentials.from_json_keyfile_dict(
     json.loads(os.getenv("GOOGLE_CREDS")),
-    SHEETS_SCOPE
+    SCOPE
 )
 
 sheet_client = gspread.authorize(sheets_creds)
 sheet = sheet_client.open_by_key(SHEET_ID)
 
-# ================== GOOGLE DRIVE ==================
-
-drive_creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    json.loads(os.getenv("DRIVE_CREDS")),
-    DRIVE_SCOPE
-)
-
-drive_service = build("drive", "v3", credentials=drive_creds)
-
-# ================== BOT SETUP ==================
+# ================== BOT ==================
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-registered_users = set()  # discord usernames only
-submissions_today = {}    # memory counter only (resets on restart)
+registered_users = set()
+submissions_today = {}
 
 # ================== HELPERS ==================
 
@@ -65,8 +56,8 @@ def load_registered_users():
         ws.append_row(["Discord Username"])
         return
 
-    for row in ws.col_values(1)[1:]:
-        registered_users.add(row)
+    for u in ws.col_values(1)[1:]:
+        registered_users.add(u)
 
 def get_today_sheet():
     today = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -77,7 +68,7 @@ def get_today_sheet():
         ws.append_row(["Date", "Username", "Screenshot", "Problem"])
     return ws
 
-def upload_to_drive(discord_url):
+def save_image_locally(discord_url):
     r = requests.get(discord_url)
     r.raise_for_status()
 
@@ -86,25 +77,12 @@ def upload_to_drive(discord_url):
         ext = "png"
 
     filename = f"{uuid.uuid4()}.{ext}"
+    filepath = IMAGE_DIR / filename
 
-    media = MediaIoBaseUpload(
-        io.BytesIO(r.content),
-        mimetype=f"image/{ext}",
-        resumable=False
-    )
+    with open(filepath, "wb") as f:
+        f.write(r.content)
 
-    file = drive_service.files().create(
-        body={"name": filename, "parents": [DRIVE_FOLDER_ID]},
-        media_body=media,
-        fields="id"
-    ).execute()
-
-    drive_service.permissions().create(
-        fileId=file["id"],
-        body={"type": "anyone", "role": "reader"}
-    ).execute()
-
-    return f"https://drive.google.com/uc?id={file['id']}"
+    return f"{IMAGE_BASE_URL}/{filename}"
 
 # ================== EVENTS ==================
 
@@ -143,20 +121,19 @@ async def submit(ctx, *, problem="No Name"):
     if not ctx.message.attachments:
         return await ctx.reply("⚠️ Attach screenshot")
 
-    await ctx.reply("📤 Uploading image…")
+    await ctx.reply("📤 Saving image…")
 
-    img_url = upload_to_drive(ctx.message.attachments[0].url)
+    image_url = save_image_locally(ctx.message.attachments[0].url)
 
     ws = get_today_sheet()
     ws.append_row([
         str(datetime.date.today()),
         uname,
-        img_url,
+        image_url,
         problem
     ])
 
     submissions_today[uname] = submissions_today.get(uname, 0) + 1
-
     await ctx.reply(f"🔥 Submission #{submissions_today[uname]} saved!")
 
 @bot.command()
