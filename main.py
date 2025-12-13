@@ -4,15 +4,15 @@ import os
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import json
 import requests
 import uuid
 from pathlib import Path
 
 # ================== CONFIG ==================
 
-TOKEN = os.getenv("TOKEN")
-VM_PUBLIC_IP = "52.172.194.26"   # <-- CHANGE THIS
+TOKEN = os.getenv("TOKEN")  # only TOKEN stays in env
+
+VM_PUBLIC_IP = "52.172.194.26"   # <-- YOUR VM PUBLIC IP
 IMAGE_BASE_URL = f"http://{VM_PUBLIC_IP}:8080"
 
 IMAGE_DIR = Path("/home/Chakradhar/cpbot_images")
@@ -23,8 +23,8 @@ SCOPE = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # ================== GOOGLE SHEETS ==================
 
-sheets_creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    json.loads(os.getenv("GOOGLE_CREDS")),
+sheets_creds = ServiceAccountCredentials.from_json_keyfile_name(
+    "service_account.json",
     SCOPE
 )
 
