@@ -48,26 +48,43 @@ else:
 
 drive_service = build('drive', 'v3', credentials=drive_creds)
 
+# Shared Drive ID (replace with your actual Shared Drive ID)
+SHARED_DRIVE_ID = "1_5_PPNN9YLOOC00Z-Wg1uhmDKfcglN5G"
+
 # Create or get the folder for bot images
 def get_or_create_drive_folder():
-    """Get or create a folder in Google Drive for storing images"""
+    """Get or create a folder in Shared Drive for storing images"""
     folder_name = "ChipsetBot_Images"
     
-    # Search for existing folder
+    # Search for existing folder in Shared Drive
     query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    results = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+    results = drive_service.files().list(
+        q=query, 
+        spaces='drive', 
+        fields='files(id, name)',
+        corpora='drive',
+        driveId=SHARED_DRIVE_ID,
+        includeItemsFromAllDrives=True,
+        supportsAllDrives=True
+    ).execute()
     folders = results.get('files', [])
     
     if folders:
+        print(f"Found existing folder: {folder_name}")
         return folders[0]['id']
     
-    # Create new folder if it doesn't exist
+    # Create new folder in Shared Drive if it doesn't exist
     file_metadata = {
         'name': folder_name,
-        'mimeType': 'application/vnd.google-apps.folder'
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [SHARED_DRIVE_ID]
     }
-    folder = drive_service.files().create(body=file_metadata, fields='id').execute()
-    print(f"Created new folder: {folder_name}")
+    folder = drive_service.files().create(
+        body=file_metadata, 
+        fields='id',
+        supportsAllDrives=True
+    ).execute()
+    print(f"Created new folder in Shared Drive: {folder_name}")
     return folder.get('id')
 
 DRIVE_FOLDER_ID = None  # Will be set on bot startup
@@ -112,7 +129,8 @@ def upload_to_drive(attachment_url):
         file = drive_service.files().create(
             body=file_metadata,
             media_body=media,
-            fields='id, webViewLink, webContentLink'
+            fields='id, webViewLink, webContentLink',
+            supportsAllDrives=True
         ).execute()
         
         file_id = file.get('id')
@@ -120,7 +138,8 @@ def upload_to_drive(attachment_url):
         # Make the file publicly accessible
         drive_service.permissions().create(
             fileId=file_id,
-            body={'type': 'anyone', 'role': 'reader'}
+            body={'type': 'anyone', 'role': 'reader'},
+            supportsAllDrives=True
         ).execute()
         
         # Return direct link to image
