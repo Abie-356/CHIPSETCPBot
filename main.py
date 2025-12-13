@@ -48,44 +48,42 @@ else:
 
 drive_service = build('drive', 'v3', credentials=drive_creds)
 
-# Shared Drive ID
-SHARED_DRIVE_ID = "1_5_PPNN9YLOOC00Z-Wg1uhmDKfcglN5G"
+# Folder ID where images will be stored (this is a regular folder, not a shared drive)
+DRIVE_FOLDER_ID_CONSTANT = "1_5_PPNN9YLOOC00Z-Wg1uhmDKfcglN5G"
 
 # Create or get the folder for bot images
 def get_or_create_drive_folder():
-    """Get or create a folder in Shared Drive for storing images"""
-    folder_name = "CP_BOT_UPLOADS"
+    """Get or create a folder in Drive for storing images"""
     
-    # Search for existing folder in Shared Drive
-    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    results = drive_service.files().list(
-        q=query, 
-        spaces='drive', 
-        fields='files(id, name)',
-        corpora='drive',
-        driveId=SHARED_DRIVE_ID,
-        includeItemsFromAllDrives=True,
-        supportsAllDrives=True
-    ).execute()
-    folders = results.get('files', [])
+    # Print service account email for debugging
+    if drive_creds_json:
+        drive_creds_dict = json.loads(drive_creds_json)
+        print(f"Service account email: {drive_creds_dict.get('client_email')}")
     
-    if folders:
-        print(f"Found existing folder: {folder_name}")
-        return folders[0]['id']
-    
-    # Create new folder in Shared Drive if it doesn't exist
-    file_metadata = {
-        'name': folder_name,
-        'mimeType': 'application/vnd.google-apps.folder',
-        'parents': [SHARED_DRIVE_ID]
-    }
-    folder = drive_service.files().create(
-        body=file_metadata, 
-        fields='id',
-        supportsAllDrives=True
-    ).execute()
-    print(f"Created new folder in Shared Drive: {folder_name}")
-    return folder.get('id')
+    # Try to access the specified folder
+    try:
+        folder = drive_service.files().get(
+            fileId=DRIVE_FOLDER_ID_CONSTANT,
+            fields='id, name'
+        ).execute()
+        print(f"Using existing folder: {folder.get('name')} (ID: {folder.get('id')})")
+        return folder.get('id')
+    except Exception as e:
+        print(f"Could not access folder {DRIVE_FOLDER_ID_CONSTANT}: {e}")
+        print("Creating a new folder in service account's Drive...")
+        
+        # Create new folder in service account's Drive
+        folder_name = "CP_BOT_UPLOADS"
+        file_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        folder = drive_service.files().create(
+            body=file_metadata, 
+            fields='id'
+        ).execute()
+        print(f"Created new folder: {folder_name} (ID: {folder.get('id')})")
+        return folder.get('id')
 
 DRIVE_FOLDER_ID = None  # Will be set on bot startup
 
