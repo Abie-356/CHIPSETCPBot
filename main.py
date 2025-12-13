@@ -48,13 +48,13 @@ else:
 
 drive_service = build('drive', 'v3', credentials=drive_creds)
 
-# Shared Drive ID (replace with your actual Shared Drive ID)
+# Shared Drive ID
 SHARED_DRIVE_ID = "1_5_PPNN9YLOOC00Z-Wg1uhmDKfcglN5G"
 
 # Create or get the folder for bot images
 def get_or_create_drive_folder():
     """Get or create a folder in Shared Drive for storing images"""
-    folder_name = "ChipsetBot_Images"
+    folder_name = "CP_BOT_UPLOADS"
     
     # Search for existing folder in Shared Drive
     query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
