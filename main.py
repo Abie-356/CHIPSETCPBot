@@ -110,7 +110,8 @@ def save_image_locally(discord_url):
 @bot.event
 async def on_ready():
     load_registered_users()
-    daily_reminder.start()
+    if not daily_reminder.is_running():
+        daily_reminder.start()
     print(f"✅ Bot online: {bot.user}")
 
 # ================== COMMANDS ==================
