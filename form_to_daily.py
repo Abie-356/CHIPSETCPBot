@@ -23,17 +23,9 @@ bot_sheet = client.open_by_key(BOT_SHEET_ID)
 
 rows = form_ws.get_all_records()
 
-# 🔒 DATE NORMALIZATION (VERY IMPORTANT)
+# 🔒 EXACT conversion: YYYY-MM-DD → DD-MM-YYYY
 def normalize_date(date_str):
-    """
-    Convert any incoming date to DD-MM-YYYY
-    """
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
-        try:
-            return datetime.strptime(date_str, fmt).strftime("%d-%m-%Y")
-        except ValueError:
-            pass
-    raise ValueError(f"Invalid date format: {date_str}")
+    return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d-%m-%Y")
 
 def get_day_sheet(date_str):
     try:
@@ -54,8 +46,8 @@ for row in rows:
 
     try:
         date = normalize_date(raw_date)
-    except:
-        continue  # skip bad date rows safely
+    except ValueError:
+        continue  # skip bad rows safely
 
     day_ws = get_day_sheet(date)
 
