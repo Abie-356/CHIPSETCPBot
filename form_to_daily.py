@@ -29,14 +29,18 @@ print("📥 Total form rows found:", len(rows))  # DEBUG (keep it)
 from datetime import datetime, date
 
 def normalize_date(raw_date):
+def normalize_date(raw_date):
+    """
+    Convert Google Form date into YYYY-MM-DD
+    """
     # Case 1: Google Sheets gives datetime.date
     if isinstance(raw_date, date):
-        return raw_date.strftime("%d-%m-%Y")
+        return raw_date.strftime("%Y-%m-%d")
 
-    # Case 2: String formats
+    # Case 2: Google Form gives string
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
         try:
-            return datetime.strptime(raw_date, fmt).strftime("%d-%m-%Y")
+            return datetime.strptime(raw_date, fmt).strftime("%Y-%m-%d")
         except ValueError:
             pass
 
@@ -80,4 +84,5 @@ for row in rows:
     ])
 
 print("✅ Google Form → Discord Bot sheet sync DONE")
+
 
