@@ -250,7 +250,9 @@ async def weeksummarize(ctx, date_str):
     if not is_valid_date(date_str):
         return await ctx.reply("❌ Use YYYY-MM-DD format")
 
-    start, end = get_week_range(date_str)
+    end = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    start = end - datetime.timedelta(days=6)
+
     title = f"Week-{start}_to_{end}"
 
     try:
@@ -279,6 +281,7 @@ async def weeksummarize(ctx, date_str):
         ws.append_row([real_name, days, 7, f"{percent:.1f}%"])
 
     await ctx.reply(f"📊 Weekly summary created ({start} → {end})")
+
 
 
 # ================== REMINDER ==================
