@@ -26,20 +26,22 @@ rows = form_ws.get_all_records()
 print("📥 Total form rows found:", len(rows))  # DEBUG (keep it)
 
 # 🔒 DATE NORMALIZATION (FINAL + SAFE)
+from datetime import datetime, date
+
 def normalize_date(raw_date):
-    """
-    Google Forms date can be:
-    - datetime.date
-    - string YYYY-MM-DD
-    Convert everything to DD-MM-YYYY
-    """
+    # Case 1: Google Sheets gives datetime.date
     if isinstance(raw_date, date):
         return raw_date.strftime("%d-%m-%Y")
 
-    if isinstance(raw_date, str):
-        return datetime.strptime(raw_date, "%Y-%m-%d").strftime("%d-%m-%Y")
+    # Case 2: String formats
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(raw_date, fmt).strftime("%d-%m-%Y")
+        except ValueError:
+            pass
 
-    raise ValueError("Unsupported date format")
+    raise ValueError(f"Unsupported date format: {raw_date}")
+
 
 def get_day_sheet(date_str):
     try:
@@ -78,3 +80,4 @@ for row in rows:
     ])
 
 print("✅ Google Form → Discord Bot sheet sync DONE")
+
