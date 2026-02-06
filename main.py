@@ -32,6 +32,7 @@ sheets_creds = ServiceAccountCredentials.from_json_keyfile_name(
 )
 
 sheet_client = gspread.authorize(sheets_creds)
+#ajfdnlsk;fd
 sheet = sheet_client.open_by_key(SHEET_ID)
 
 # ================== BOT ==================
