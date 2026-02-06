@@ -181,16 +181,39 @@ async def submit(ctx, *, args=""):
         await ctx.reply(f"✅ Backdated submission saved for **{date_str}**")
 
 @bot.command()
-async def status(ctx):
+async def status(ctx, date: str | None = None):
     if ctx.guild:
         return await ctx.reply("DM me")
 
-    count = submissions_today.get(ctx.author.name, 0)
-    if count:
-        await ctx.reply(f"✔ You submitted {count} today")
+    if date is None:
+        target_date = today_str()
     else:
-        await ctx.reply("❌ No submissions today")
+        if not is_valid_date(date):
+            return await ctx.reply("❌ Please use date in **YYYY-MM-DD** format.")
+        
+        if not is_date_within_last_3_days(date):
+            return await ctx.reply("❌ You can view status only for **today or last 3 days**.")
+        
+        target_date = date
 
+    try:
+        ws = sheet.worksheet(target_date)
+    except:
+        return await ctx.reply(f"❌ No submissions logged for **{target_date}**.")
+    
+    submitted_users = ws.col_values(2)[1:]
+    count=submitted_users.count(ctx.author.name)
+    
+    if target_date==today_str():
+        label = "today"
+    else:
+        label = target_date
+
+    if count>0:
+        return await ctx.reply(f"✅ You have submitted **{count}** time(s) for **{label}**.")
+    else:
+        return await ctx.reply(f"❌ No submissions on **{label}**.")
+        
 @bot.command()
 async def notcompleted(ctx):
     if not ctx.guild or not ctx.author.guild_permissions.administrator:
